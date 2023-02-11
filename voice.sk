@@ -1,0 +1,265 @@
+options:
+	guild: guild id
+	token: bot token
+	wait: default voice id
+	admin: admin voice id
+	name: bot name
+
+function contains(list: objects, check: object) :: boolean:
+    loop {_list::*}:
+        if loop-value is {_check}:
+            return true
+    return false
+
+on member join guild:
+	shutdown "{@name}"
+	wait 5 seconds
+	create vixio bot:
+		enable the guild members intent
+		login to "{@token}" with the name "{@name}"
+	set {voice::status} to true
+
+on load:
+	delete {voice::channel::*}
+	delete {voice::user::list::*}
+	shutdown "{@name}"
+	shutdown "{@name}"
+	shutdown "{@name}"
+	wait 5 seconds
+	create vixio bot:
+		enable the guild members intent
+		login to "{@token}" with the name "{@name}"
+	set {voice::status} to true
+
+	
+command /통화 [<text>]:
+	trigger:
+		if arg 1 is not set:
+			open chest with 3 rows named "통화 GUI" to player
+			set slot 12 of current inventory of player to diamond sword named "운영자 통화 연결" with lore "클릭 시 운영자 통화방으로 이동됩니다."
+			
+			set slot 22 of current inventory of player to barrier named "통화 끊기" with lore "클릭 시 대기방으로 이동됩니다."
+			stop
+	
+command /연동:
+	trigger:
+		open chest with 3 rows named "연동 하기" to player
+		set {_a} to 0
+		set {gu} to guild with id "{@guild}"
+		loop discord members of {gu}:
+			add loop-value to {_dis::*}
+		set {_list} to size of {_dis}
+		loop {_dis::*}:
+			set slot {_a} of current inventory of player to player head named "%discord id of {_dis::%{_a}%}%" with lore "%discord nickname of {_dis::%{_a}%}% | %{_dis::%{_a}%}%"
+			add 1 to {_a}
+	
+command /통화신청:
+	trigger:
+		open chest with 3 rows named "통화 신청하기" to player
+		set {_slot} to 0
+		loop all players:
+			set {_p} to "%loop-player%" parsed as player
+			set slot {_slot} of current inventory of player to skull of {_p} named "%loop-player%"
+			add 1 to {_slot}
+	
+every seconds:
+	loop all players:
+		if {voice::status::%loop-player%} is true:
+			close loop-player's inventory
+			wait 2 ticks
+			open chest with 3 rows named "통화 요청" to loop-player
+			set slot 11 of current inventory of loop-player to red wool named "통화 거절" with lore "클릭 시 통화가 거절됩니다."
+			set slot 13 of current inventory of loop-player to skull of {voice::call::%loop-player%::rec} named "%{voice::call::%loop-player%::rec}%" with lore "%{voice::call::%loop-player%::rec}% 님의 통화 요청"
+			set slot 15 of current inventory of loop-player to green wool named "통화 수락" with lore "클릭 시 통화가 수락됩니다."
+			set {voice::status::%loop-player%} to false
+	
+on inventory click:							
+	if current inventory of player's name is "통화 요청":
+		cancel event
+		set {_slot} to index of clicked slot
+		set {_item} to name of clicked slot
+		if {_slot} is 11:
+			close player's inventory
+			execute player command "/통화 거절"
+		if {_slot} is 15:
+			close player's inventory
+			execute player command "/통화 수락"
+			
+	if current inventory of player's name is "연동 하기":
+		cancel event
+		set {_slot} to index of clicked slot
+		set {_item} to name of clicked slot
+		if {_item} is set:
+			close player's inventory
+			retrieve user with id "%{_item}%" and store them in {_user}
+			send "당신의 디스코드 계정이 YD마을 마인크래프트 서버 유저 %player% 와 연동되었습니다. 본인이 한 행동이 아니라면 서버에서 다시 연동해주세요." to {_user} with "{@name}"
+			set the discord nickname of {_user} to "%event-player%" with "{@name}"
+			send "디스코드 ID : %{_item}%"
+			set {voice::status::%event-player%::id} to {_item}
+			set {voice::status::%{voice::status::%event-player%::id}%::id} to event-player
+			
+			
+	if current inventory of player's name is "통화 GUI":
+		cancel event
+		set {_slot} to index of clicked slot
+		set {_item} to name of clicked slot
+		if {%player%::deno} >= 0:
+			if {_slot} is 2:
+				close player's inventory
+				execute player command "/통화 거절"
+			if {_slot} is 6:
+				close player's inventory
+				execute player command "/통화 수락"
+		
+		if {_slot} is 10:
+			close player's inventory
+			wait 2 ticks
+			open chest with 3 rows named "통화 신청하기" to player
+			set {_slot} to 0
+			loop all players:
+				set {_p} to "%loop-player%" parsed as player
+				set slot {_slot} of current inventory of player to skull of {_p} named "%loop-player%"
+				add 1 to {_slot}
+			stop
+		
+		if {_slot} is 12:
+			close player's inventory
+			if contains({voice::user::list::*}, {voice::status::%event-player%::id}) is true:
+			#if {voice::status::%event-player%::id} contains {voice::user::list::*}:
+				set {voice::status::%{voice::status::%player%::id}%::status} to true
+				set {voice::status::%{voice::status::%player%::id}%::channel} to "{@admin}"
+				stop
+			else:
+				send "&b통화 대기방에 먼저 들어가주세요!"
+		
+		if {_slot} is 14:
+			close player's inventory
+			if contains({voice::user::list::*}, {voice::status::%event-player%::id}) is true:
+				set {voice::allowlist::%{voice::status::%event-player%::id}%} to true
+				stop
+			else:
+				send "&b통화 대기방에 먼저 들어가주세요!"
+		
+		if {_slot} is 22:
+			close player's inventory
+			if contains({voice::user::list::*}, {voice::status::%event-player%::id}) is true:
+			#if {voice::status::%event-player%::id} contains {voice::user::list::*}:
+				set {voice::status::%{voice::status::%player%::id}%::status} to true
+				set {voice::status::%{voice::status::%player%::id}%::channel} to "{@wait}"
+				stop
+			else:
+				send "&b통화 대기방에 먼저 들어가주세요!"
+	
+on unload:
+	delete {voice::channel::*}
+	delete {voice::user::list::*}
+	shutdown "{@name}"
+
+#command /통화끊기:
+#	trigger:
+#		set {voice::status::%{voice::status::%player%::id}%::status} to true
+#		set {voice::status::%{voice::status::%player%::id}%::channel} to "{@wait}"
+		
+#command /운영자통화:
+#	trigger:
+#		set {voice::status::%{voice::status::%player%::id}%::status} to true
+#		set {voice::status::%{voice::status::%player%::id}%::channel} to "{@admin}"
+	
+on bot leave guild:
+	clear {voice::*}
+
+on swap hand items:
+	set {_deloc} to player's location
+	send "&b3초 동안 가만히 있으면 통화 메뉴가 실행됩니다."
+	loop 3 times:
+		set {_loc} to player's location
+		if {_deloc} is not {_loc}:
+			send "&b취소되었습니다."
+			stop
+		wait 1 seconds
+	execute player command "/통화"
+	
+	
+command /resetrooms:
+	trigger:
+		send "%{voice::rooms::*}%"
+		delete {voice::rooms::*}
+		loop all players:
+			set {voice::call::%loop-player%::rooms} to false
+	
+on voice channel join:
+	set {voice::channel::%discord id of event-user%::now} to discord id of event-channel
+	
+	
+	add discord id of event-member to {voice::user::list::*}
+	add event-user to {voice::channel::%discord id of event-channel%::user::*}
+	add 1 to {voice::channel::%discord id of event-channel%::list}
+	while {voice::status} is true:
+		
+			
+			
+		if {voice::status::%discord id of event-member%::status} is true:
+			if {voice::status::%discord id of event-member%::channel} is set:
+				set {_channel} to voice channel with id "%{voice::status::%discord id of event-member%::channel}%"
+			else:
+				create voice channel:
+					set the name of the channel to "%{voice::status::%discord id of event-member%::name}%"
+				set {guild} to guild with id "{@guild}"
+				create the last made channel in {guild} with "{@name}" and store it in {_a}
+				set {_ch} to "%discord id of {_a}%"
+				set {_channel} to voice channel with id "%{_ch}%"
+				set {voice::call::%{voice::call::%{voice::status::%discord id of event-member%::id}%::rec}%::channel} to {_ch}
+				
+			move event-member to {_channel}
+			loop all players:
+				if loop-player is {voice::status::%discord id of event-member%::id}:
+					send "&b'%{_channel}%' 통화방으로 이동합니다." to loop-player
+			set {voice::status::%discord id of event-member%::status} to false
+			delete {voice::status::%discord id of event-member%::channel}
+		wait 1 seconds
+
+		
+on member switch voice channel:
+	set {voice::channel::%discord id of event-user%::now} to discord id of new channel
+
+	remove event-user from {voice::channel::%discord id of old channel%::user::*}
+	remove 1 from {voice::channel::%discord id of old channel%::list}
+	
+	add 1 to {voice::channel::%discord id of new channel%::list}
+	add event-user to {voice::channel::%discord id of new channel%::user::*}
+	
+	set {_a} to {voice::channel::%discord id of old channel%::list}
+	set {_b} to discord id of old channel
+	if {_b} is not "{@wait}" or "{@admin}":
+		if {_a} <= 0:
+			delete discord entity old channel
+			delete {voice::channel::%discord id of old channel%::*}
+			if contains({voice::rooms::*}, {_b}) is true:
+			#if {_b} contains {voice::rooms::*}:
+				set {voice::call::%{voice::rooms::%{_b}%::user}%::rooms} to false
+				remove {_b} from {voice::rooms::*}
+				
+		
+on voice channel leave:
+	remove discord id of event-member from {voice::user::list::*}
+	remove 1 from {voice::channel::%discord id of event-channel%::list}
+	remove event-user from {voice::channel::%discord id of event-channel%::user::*}
+	set {_a} to {voice::channel::%discord id of event-channel%::list}
+	set {_b} to discord id of event-channel
+	if {_b} is not "{@wait}" or "{@admin}":
+		if {_a} <= 0:
+			delete discord entity event-channel
+			delete {voice::channel::%discord id of event-channel%::*}
+			if contains({voice::rooms::*}, {_b}) is true:
+			#if {_b} contains {voice::rooms::*}:
+				set {voice::call::%{voice::rooms::%{_b}%::user}%::rooms} to false
+				remove {_b} from {voice::rooms::*}
+			
+command /수 [<int>]:
+	trigger:
+		send "%{voice::channel::%arg 1%::list}%"
+		
+command /리셋:
+	trigger:
+		delete {voice::channel::*}
+		delete {voice::user::list::*}
